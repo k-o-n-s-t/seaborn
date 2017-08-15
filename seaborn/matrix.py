@@ -57,7 +57,6 @@ def _convert_colors(colors):
             # If we get here, we have nested lists
             return [list(map(to_rgb, l)) for l in colors]
 
-
 def _matrix_mask(data, mask):
     """Ensure that data and mask are compatabile and add missing values.
 
@@ -750,8 +749,12 @@ def dendrogram(data, linkage=None, axis=1, label=True, metric='euclidean',
 
 
 class ClusterGrid(Grid):
+    # def __init__(self, data, pivot_kws=None, z_score=None, standard_scale=None,
+    #              figsize=None, row_colors=None, col_colors=None, mask=None):
     def __init__(self, data, pivot_kws=None, z_score=None, standard_scale=None,
-                 figsize=None, row_colors=None, col_colors=None, mask=None):
+                 figsize=None, row_colors=None, col_colors=None, mask=None,
+                 row_cluster=True, col_cluster=True,
+                 row_colors_ratio=0.05, col_colors_ratio=0.05):
         """Grid object for organizing clustered heatmap input on to axes"""
 
         if isinstance(data, pd.DataFrame):
@@ -774,42 +777,106 @@ class ClusterGrid(Grid):
         self.col_colors, self.col_color_labels = \
             self._preprocess_colors(data, col_colors, axis=1)
 
-        width_ratios = self.dim_ratios(self.row_colors,
-                                       figsize=figsize,
-                                       axis=1)
+        # self.ax_row_dendrogram = self.fig.add_subplot(self.gs[nrows - 1, 0:2])
+        # self.ax_col_dendrogram = self.fig.add_subplot(self.gs[0:2, ncols - 1])
+        width_ratios = self.dim_ratios(row_colors, row_cluster,
+                                       figsize=figsize, axis=1,
+                                       side_colors_ratio=row_colors_ratio)
 
-        height_ratios = self.dim_ratios(self.col_colors,
-                                        figsize=figsize,
-                                        axis=0)
-        nrows = 3 if self.col_colors is None else 4
-        ncols = 3 if self.row_colors is None else 4
+        height_ratios = self.dim_ratios(col_colors, col_cluster,
+                                        figsize=figsize, axis=0,
+                                        side_colors_ratio=col_colors_ratio)
+
+        nrows = len(height_ratios)
+        ncols = len(width_ratios)
 
         self.gs = gridspec.GridSpec(nrows, ncols, wspace=0.01, hspace=0.01,
                                     width_ratios=width_ratios,
                                     height_ratios=height_ratios)
 
-        self.ax_row_dendrogram = self.fig.add_subplot(self.gs[nrows - 1, 0:2])
-        self.ax_col_dendrogram = self.fig.add_subplot(self.gs[0:2, ncols - 1])
-        self.ax_row_dendrogram.set_axis_off()
-        self.ax_col_dendrogram.set_axis_off()
+        # Setup dendrogram axes as needed.
+        self.ax_row_dendrogram = None
+        self.ax_col_dendrogram = None
 
+        if row_cluster:
+            index = self._ax_index_dendrogram(col_colors, col_cluster)
+            self.ax_row_dendrogram = self.fig.add_subplot(self.gs[index, 0], axisbg="white")
+
+        if col_cluster:
+            index = self._ax_index_dendrogram(row_colors, row_cluster)
+            self.ax_col_dendrogram = self.fig.add_subplot(self.gs[0, index], axisbg="white")
+
+        # Setup color axes as needed.
         self.ax_row_colors = None
         self.ax_col_colors = None
 
-        if self.row_colors is not None:
-            self.ax_row_colors = self.fig.add_subplot(
-                self.gs[nrows - 1, ncols - 2])
-        if self.col_colors is not None:
-            self.ax_col_colors = self.fig.add_subplot(
-                self.gs[nrows - 2, ncols - 1])
+        if row_colors is not None:
+            self.ax_row_colors = self.fig.add_subplot(self.gs[nrows - 1, ncols - 4])
+        if col_colors is not None:
+            self.ax_col_colors = self.fig.add_subplot(self.gs[nrows - 2, ncols - 3])
 
-        self.ax_heatmap = self.fig.add_subplot(self.gs[nrows - 1, ncols - 1])
+        # Setup heatmap axis.
+        self.ax_heatmap = self.fig.add_subplot(self.gs[nrows - 1, ncols - 3])
+
+        # Setup colorbar axis.
+        # self.ax_cbar = self.fig.add_subplot(self.gs[nrows - 1, ncols - 1])
+        self.cax = self.fig.add_subplot(self.gs[nrows - 1, ncols - 1])
+
+        #############
+        self.ax_row_dendrogram.set_axis_off()
+        self.ax_col_dendrogram.set_axis_off()
+
+        # if self.row_colors is not None:
+        #     self.ax_row_colors = self.fig.add_subplot(
+        #         self.gs[nrows - 1, ncols - 2])
+        # if self.col_colors is not None:
+        #     self.ax_col_colors = self.fig.add_subplot(
+        #         self.gs[nrows - 2, ncols - 1])
+
+        # self.ax_heatmap = self.fig.add_subplot(self.gs[nrows - 1, ncols - 1])
 
         # colorbar for scale to left corner
-        self.cax = self.fig.add_subplot(self.gs[0, 0])
+        # self.cax = self.fig.add_subplot(self.gs[0, 0])
 
         self.dendrogram_row = None
         self.dendrogram_col = None
+
+    def _ax_index_dendrogram(self, side_colors, cluster):
+        """Calculate index of dendrogram axis, depending on presence
+           of side_colors and/or dendrogram on the OTHER axis.
+        """
+        index = 1 if cluster else 0
+        if side_colors is not None:
+            index += 1
+        return index
+
+    # new
+    def dim_ratios(self, side_colors, dendrogram, axis,
+                   figsize, side_colors_ratio):
+        """Get the proportions of the figure taken up by each axis
+        """
+
+        ratios = []
+
+        # Get resizing proportion of this figure for the dendrogram and
+        # colorbar, so only the heatmap gets bigger but the dendrogram stays
+        # the same size.
+        if dendrogram:
+            dendrogram_ratio = min(2. / figsize[axis], .2)
+            ratios.append(dendrogram_ratio)
+
+        # Add room for the colors
+        if side_colors is not None:
+            ratios.append(side_colors_ratio)
+
+        # Add the ratio for the heatmap itself.
+        ratios.append(0.8)
+
+        # Add the colorbar
+        if axis == 1:
+            ratios += [0.05, 0.02]
+
+        return ratios
 
     def _preprocess_colors(self, data, colors, axis):
         """Preprocess {row/col}_colors to extract labels and convert colors."""
@@ -933,7 +1000,7 @@ class ClusterGrid(Grid):
         else:
             return standardized.T
 
-    def dim_ratios(self, side_colors, axis, figsize, side_colors_ratio=0.05):
+    def old_dim_ratios(self, side_colors, axis, figsize, side_colors_ratio=0.05):
         """Get the proportions of the figure taken up by each axes
         """
         figdim = figsize[axis]
@@ -1145,6 +1212,7 @@ def clustermap(data, pivot_kws=None, method='average', metric='euclidean',
                z_score=None, standard_scale=None, figsize=None, cbar_kws=None,
                row_cluster=True, col_cluster=True,
                row_linkage=None, col_linkage=None,
+               row_colors_ratio=0.05, col_colors_ratio=0.05,
                row_colors=None, col_colors=None, mask=None, **kwargs):
     """Plot a matrix dataset as a hierarchically-clustered heatmap.
 
@@ -1288,6 +1356,8 @@ def clustermap(data, pivot_kws=None, method='average', metric='euclidean',
 
     """
     plotter = ClusterGrid(data, pivot_kws=pivot_kws, figsize=figsize,
+                          row_colors_ratio=row_colors_ratio,
+                          col_colors_ratio=col_colors_ratio,
                           row_colors=row_colors, col_colors=col_colors,
                           z_score=z_score, standard_scale=standard_scale,
                           mask=mask)
