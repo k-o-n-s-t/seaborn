@@ -311,7 +311,8 @@ class _HeatMapper(object):
         ytl = ax.set_yticklabels(yticklabels, rotation="vertical")
 
         # Possibly rotate them if they overlap
-        ax.figure.draw(ax.figure.canvas.get_renderer())
+        ## ax.figure.draw(ax.figure.canvas.get_renderer())
+        plt.draw()
         if axis_ticklabels_overlap(xtl):
             plt.setp(xtl, rotation="vertical")
         if axis_ticklabels_overlap(ytl):
@@ -696,7 +697,8 @@ class _DendrogramPlotter(object):
         ytl = ax.set_yticklabels(self.yticklabels, rotation='vertical')
 
         # Force a draw of the plot to avoid matplotlib window error
-        ax.figure.draw(ax.figure.canvas.get_renderer())
+        ##ax.figure.draw(ax.figure.canvas.get_renderer())
+        plt.draw()
         if len(ytl) > 0 and axis_ticklabels_overlap(ytl):
             plt.setp(ytl, rotation="horizontal")
         if len(xtl) > 0 and axis_ticklabels_overlap(xtl):
@@ -779,11 +781,11 @@ class ClusterGrid(Grid):
 
         # self.ax_row_dendrogram = self.fig.add_subplot(self.gs[nrows - 1, 0:2])
         # self.ax_col_dendrogram = self.fig.add_subplot(self.gs[0:2, ncols - 1])
-        width_ratios = self.dim_ratios(row_colors, row_cluster,
+        width_ratios = self.dim_ratios(self.row_colors, row_cluster,
                                        figsize=figsize, axis=1,
                                        side_colors_ratio=row_colors_ratio)
 
-        height_ratios = self.dim_ratios(col_colors, col_cluster,
+        height_ratios = self.dim_ratios(self.col_colors, col_cluster,
                                         figsize=figsize, axis=0,
                                         side_colors_ratio=col_colors_ratio)
 
@@ -840,43 +842,6 @@ class ClusterGrid(Grid):
 
         self.dendrogram_row = None
         self.dendrogram_col = None
-
-    def _ax_index_dendrogram(self, side_colors, cluster):
-        """Calculate index of dendrogram axis, depending on presence
-           of side_colors and/or dendrogram on the OTHER axis.
-        """
-        index = 1 if cluster else 0
-        if side_colors is not None:
-            index += 1
-        return index
-
-    # new
-    def dim_ratios(self, side_colors, dendrogram, axis,
-                   figsize, side_colors_ratio):
-        """Get the proportions of the figure taken up by each axis
-        """
-
-        ratios = []
-
-        # Get resizing proportion of this figure for the dendrogram and
-        # colorbar, so only the heatmap gets bigger but the dendrogram stays
-        # the same size.
-        if dendrogram:
-            dendrogram_ratio = min(2. / figsize[axis], .2)
-            ratios.append(dendrogram_ratio)
-
-        # Add room for the colors
-        if side_colors is not None:
-            ratios.append(side_colors_ratio)
-
-        # Add the ratio for the heatmap itself.
-        ratios.append(0.8)
-
-        # Add the colorbar
-        if axis == 1:
-            ratios += [0.05, 0.02]
-
-        return ratios
 
     def _preprocess_colors(self, data, colors, axis):
         """Preprocess {row/col}_colors to extract labels and convert colors."""
@@ -999,6 +964,43 @@ class ClusterGrid(Grid):
             return standardized
         else:
             return standardized.T
+
+    def _ax_index_dendrogram(self, side_colors, cluster):
+        """Calculate index of dendrogram axis, depending on presence
+           of side_colors and/or dendrogram on the OTHER axis.
+        """
+        index = 1 if cluster else 0
+        if side_colors is not None:
+            index += 1
+        return index
+
+    # new
+    def dim_ratios(self, side_colors, dendrogram, axis,
+                   figsize, side_colors_ratio):
+        """Get the proportions of the figure taken up by each axis
+        """
+
+        ratios = []
+
+        # Get resizing proportion of this figure for the dendrogram and
+        # colorbar, so only the heatmap gets bigger but the dendrogram stays
+        # the same size.
+        if dendrogram:
+            dendrogram_ratio = min(2. / figsize[axis], .2)
+            ratios.append(dendrogram_ratio)
+
+        # Add room for the colors
+        if side_colors is not None:
+            ratios.append(side_colors_ratio)
+
+        # Add the ratio for the heatmap itself.
+        ratios.append(0.8)
+
+        # Add the colorbar
+        if axis == 1:
+            ratios += [0.05, 0.02]
+
+        return ratios
 
     def old_dim_ratios(self, side_colors, axis, figsize, side_colors_ratio=0.05):
         """Get the proportions of the figure taken up by each axes
@@ -1182,12 +1184,16 @@ class ClusterGrid(Grid):
                 cbar_kws=colorbar_kws, mask=self.mask,
                 xticklabels=xtl, yticklabels=ytl, **kws)
 
-        ytl = self.ax_heatmap.get_yticklabels()
-        ytl_rot = None if not ytl else ytl[0].get_rotation()
+        xtl_rot = self.ax_heatmap.get_xticklabels()[0].get_rotation()
+        ytl_rot = self.ax_heatmap.get_yticklabels()[0].get_rotation()
+
         self.ax_heatmap.yaxis.set_ticks_position('right')
         self.ax_heatmap.yaxis.set_label_position('right')
-        if ytl_rot is not None:
-            plt.setp(ytl, rotation=ytl_rot)
+
+        plt.setp(self.ax_heatmap.get_xticklabels(), rotation=xtl_rot)
+        plt.setp(self.ax_heatmap.get_yticklabels(), rotation=ytl_rot)
+        # if ytl_rot is not None:
+        #     plt.setp(ytl, rotation=ytl_rot)
 
     def plot(self, metric, method, colorbar_kws, row_cluster, col_cluster,
              row_linkage, col_linkage, **kws):
