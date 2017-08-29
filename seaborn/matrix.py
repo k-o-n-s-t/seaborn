@@ -1,23 +1,21 @@
 """Functions to visualize matrices of data."""
 from __future__ import division
+
 import itertools
 
 import matplotlib as mpl
-from matplotlib.collections import LineCollection
 import matplotlib.pyplot as plt
-from matplotlib import gridspec
 import numpy as np
 import pandas as pd
-from scipy.spatial import distance
+from matplotlib import gridspec
+from matplotlib.collections import LineCollection
 from scipy.cluster import hierarchy
 
 from . import cm
 from .axisgrid import Grid
+from .external.six import string_types
 from .utils import (despine, axis_ticklabels_overlap, relative_luminance,
                     to_utf8)
-
-from .external.six import string_types
-
 
 __all__ = ["heatmap", "clustermap"]
 
@@ -45,7 +43,7 @@ def _convert_colors(colors):
     if isinstance(colors, pd.DataFrame):
         # Convert dataframe
         return pd.DataFrame({col: colors[col].map(to_rgb)
-                            for col in colors})
+                             for col in colors})
     elif isinstance(colors, pd.Series):
         return colors.map(to_rgb)
     else:
@@ -56,6 +54,7 @@ def _convert_colors(colors):
         except ValueError:
             # If we get here, we have nested lists
             return [list(map(to_rgb, l)) for l in colors]
+
 
 def _matrix_mask(data, mask):
     """Ensure that data and mask are compatabile and add missing values.
@@ -82,7 +81,7 @@ def _matrix_mask(data, mask):
     elif isinstance(mask, pd.DataFrame):
         # For DataFrame masks, ensure that semantic labels match data
         if not mask.index.equals(data.index) \
-           and mask.columns.equals(data.columns):
+                and mask.columns.equals(data.columns):
             err = "Mask must have the same index and columns as data."
             raise ValueError(err)
 
@@ -610,7 +609,7 @@ class _DendrogramPlotter(object):
         vector_methods = ('single', 'centroid', 'median', 'ward')
         euclidean_methods = ('centroid', 'median', 'ward')
         euclidean = self.metric == 'euclidean' and self.method in \
-            euclidean_methods
+                                                   euclidean_methods
         if euclidean or self.method == 'single':
             return fastcluster.linkage_vector(self.array,
                                               method=self.method,
@@ -756,7 +755,7 @@ class ClusterGrid(Grid):
     def __init__(self, data, pivot_kws=None, z_score=None, standard_scale=None,
                  figsize=None, row_colors=None, col_colors=None, mask=None,
                  row_cluster=True, col_cluster=True,
-                 row_colors_ratio=0.05, col_colors_ratio=0.05):
+                 row_colors_ratio=None, col_colors_ratio=None):
         """Grid object for organizing clustered heatmap input on to axes"""
 
         if isinstance(data, pd.DataFrame):
@@ -976,7 +975,7 @@ class ClusterGrid(Grid):
 
     # new
     def dim_ratios(self, side_colors, dendrogram, axis,
-                   figsize, side_colors_ratio):
+                   figsize, side_colors_ratio=None):
         """Get the proportions of the figure taken up by each axis
         """
 
@@ -991,6 +990,10 @@ class ClusterGrid(Grid):
 
         # Add room for the colors
         if side_colors is not None:
+            if side_colors_ratio is None:
+                side_colors_ratio = 0.8 * side_colors.shape[0] / self.data.shape[axis]  # TODO check
+            else:
+                side_colors_ratio = 0.05
             ratios.append(side_colors_ratio)
 
         # Add the ratio for the heatmap itself.

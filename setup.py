@@ -27,7 +27,8 @@ MAINTAINER = 'Michael Waskom'
 MAINTAINER_EMAIL = 'mwaskom@nyu.edu'
 URL = 'http://seaborn.pydata.org'
 LICENSE = 'BSD (3-clause)'
-DOWNLOAD_URL = 'https://github.com/mwaskom/seaborn/'
+# DOWNLOAD_URL = 'https://github.com/mwaskom/seaborn/'
+DOWNLOAD_URL = 'https://github.com/k-o-n-s-t/seaborn/'
 VERSION = '0.9.dev.k'
 
 try:
