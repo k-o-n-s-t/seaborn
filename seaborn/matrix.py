@@ -868,6 +868,8 @@ class ClusterGrid(Grid):
                     else:
                         labels = [colors.name]
                     colors = colors.values
+            else:
+                colors = np.array(colors)
 
             colors = _convert_colors(colors)
 
