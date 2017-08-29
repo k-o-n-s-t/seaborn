@@ -755,7 +755,7 @@ class ClusterGrid(Grid):
     def __init__(self, data, pivot_kws=None, z_score=None, standard_scale=None,
                  figsize=None, row_colors=None, col_colors=None, mask=None,
                  row_cluster=True, col_cluster=True,
-                 row_colors_ratio=None, col_colors_ratio=None):
+                 row_colors_ratio=0.66, col_colors_ratio=0.66):
         """Grid object for organizing clustered heatmap input on to axes"""
 
         if isinstance(data, pd.DataFrame):
@@ -772,7 +772,6 @@ class ClusterGrid(Grid):
             width, height = 10, 10
             figsize = (width, height)
         self.fig = plt.figure(figsize=figsize)
-
         self.row_colors, self.row_color_labels = \
             self._preprocess_colors(data, row_colors, axis=0)
         self.col_colors, self.col_color_labels = \
@@ -782,11 +781,11 @@ class ClusterGrid(Grid):
         # self.ax_col_dendrogram = self.fig.add_subplot(self.gs[0:2, ncols - 1])
         width_ratios = self.dim_ratios(self.row_colors, row_cluster,
                                        figsize=figsize, axis=1,
-                                       side_colors_ratio=row_colors_ratio)
+                                       side_colors_cell_ratio=row_colors_ratio)
 
         height_ratios = self.dim_ratios(self.col_colors, col_cluster,
                                         figsize=figsize, axis=0,
-                                        side_colors_ratio=col_colors_ratio)
+                                        side_colors_cell_ratio=col_colors_ratio)
 
         nrows = len(height_ratios)
         ncols = len(width_ratios)
@@ -977,7 +976,7 @@ class ClusterGrid(Grid):
 
     # new
     def dim_ratios(self, side_colors, dendrogram, axis,
-                   figsize, side_colors_ratio=None):
+                   figsize, side_colors_cell_ratio):
         """Get the proportions of the figure taken up by each axis
         """
 
@@ -992,10 +991,11 @@ class ClusterGrid(Grid):
 
         # Add room for the colors
         if side_colors is not None:
-            if side_colors_ratio is None:
-                side_colors_ratio = 0.8 * side_colors.shape[0] / self.data.shape[axis]  # TODO check
+            if len(side_colors) == 1:
+                side_colors_size = len(side_colors[0])  # not safe
             else:
-                side_colors_ratio = 0.05
+                side_colors_size = len(side_colors)
+            side_colors_ratio = 0.8 * side_colors_size * side_colors_cell_ratio / self.data.shape[axis]  # TODO check
             ratios.append(side_colors_ratio)
 
         # Add the ratio for the heatmap itself.
@@ -1223,7 +1223,7 @@ def clustermap(data, pivot_kws=None, method='average', metric='euclidean',
                z_score=None, standard_scale=None, figsize=None, cbar_kws=None,
                row_cluster=True, col_cluster=True,
                row_linkage=None, col_linkage=None,
-               row_colors_ratio=None, col_colors_ratio=None,
+               row_colors_ratio=0.66, col_colors_ratio=0.66,
                row_colors=None, col_colors=None, mask=None, **kwargs):
     """Plot a matrix dataset as a hierarchically-clustered heatmap.
 
